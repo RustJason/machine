@@ -377,7 +377,7 @@ func (d *Driver) Create() error {
 		return err
 	}
 
-	if err := d.setupHostOnlyNetwork(d.MachineName); err != nil {
+	if err := d.setupBridgedNetwork(d.MachineName); err != nil {
 		return err
 	}
 
@@ -464,9 +464,9 @@ func (d *Driver) Start() error {
 		return err
 	}
 
-	if s == state.Stopped {
+	if s == state.Stopped || s == state.Saved {
 		// check network to re-create if needed
-		if err := d.setupHostOnlyNetwork(d.MachineName); err != nil {
+		if err := d.setupBridgedNetwork(machineName string)(d.MachineName); err != nil {
 			return fmt.Errorf("Error setting up host only network on machine start: %s", err)
 		}
 	}
@@ -714,6 +714,53 @@ func (d *Driver) generateDiskImage(size int) error {
 	return createDiskImage(d.diskPath(), size, raw)
 }
 
+func (d *Driver) setupBridgedNetwork(machineName string) error {
+	hostOnlyCIDR := d.HostOnlyCIDR
+
+	// This is to assist in migrating from version 0.2 to 0.3 format
+	// it should be removed in a later release
+	if hostOnlyCIDR == "" {
+		hostOnlyCIDR = defaultHostOnlyCIDR
+	}
+
+	ip, network, err := parseAndValidateCIDR(hostOnlyCIDR)
+	if err != nil {
+		return err
+	}
+
+	dhcpAddr, err := getRandomIPinSubnet(ip)
+	if err != nil {
+		return err
+	}
+
+	nAddr := network.IP.To4()
+	lowerDHCPIP := net.IPv4(nAddr[0], nAddr[1], nAddr[2], byte(100))
+	upperDHCPIP := net.IPv4(nAddr[0], nAddr[1], nAddr[2], byte(254))
+
+	log.Debugf("using %s for dhcp address", dhcpAddr)
+
+	hostOnlyNetwork, err := getOrCreateHostOnlyNetwork(
+		ip,
+		network.Mask,
+		dhcpAddr,
+		lowerDHCPIP,
+		upperDHCPIP,
+		d.VBoxManager,
+	)
+	if err != nil {
+		return err
+	}
+
+	hostOnlyNetwork.Name = "wlan0" //FIXME
+
+	return d.vbm("modifyvm", machineName,
+		"--nic2", "bridged",
+		"--nictype2", d.HostOnlyNicType,
+		"--nicpromisc2", d.HostOnlyPromiscMode,
+		"--hostonlyadapter2", hostOnlyNetwork.Name,
+		"--cableconnected2", "on")
+}
+
 func (d *Driver) setupHostOnlyNetwork(machineName string) error {
 	hostOnlyCIDR := d.HostOnlyCIDR
 
@@ -752,7 +799,7 @@ func (d *Driver) setupHostOnlyNetwork(machineName string) error {
 	}
 
 	return d.vbm("modifyvm", machineName,
-		"--nic2", "hostonly",
+		"--nic2", "bridged",
 		"--nictype2", d.HostOnlyNicType,
 		"--nicpromisc2", d.HostOnlyPromiscMode,
 		"--hostonlyadapter2", hostOnlyNetwork.Name,
