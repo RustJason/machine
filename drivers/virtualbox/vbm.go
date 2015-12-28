@@ -48,7 +48,7 @@ func (v *VBoxCmdManager) vbmOut(args ...string) (string, error) {
 
 func (v *VBoxCmdManager) vbmOutErr(args ...string) (string, string, error) {
 	cmd := exec.Command(vboxManageCmd, args...)
-	log.Debugf("COMMAND: %v %v", vboxManageCmd, strings.Join(args, " "))
+	log.Infof("COMMAND: %v %v", vboxManageCmd, strings.Join(args, " "))
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout

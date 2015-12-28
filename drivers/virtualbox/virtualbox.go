@@ -757,7 +757,7 @@ func (d *Driver) setupBridgedNetwork(machineName string) error {
 		"--nic2", "bridged",
 		"--nictype2", d.HostOnlyNicType,
 		"--nicpromisc2", d.HostOnlyPromiscMode,
-		"--hostonlyadapter2", hostOnlyNetwork.Name,
+		"--bridgeadapter2", hostOnlyNetwork.Name,
 		"--cableconnected2", "on")
 }
 
