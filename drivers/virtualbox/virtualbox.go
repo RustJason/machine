@@ -466,7 +466,7 @@ func (d *Driver) Start() error {
 
 	if s == state.Stopped || s == state.Saved {
 		// check network to re-create if needed
-		if err := d.setupBridgedNetwork(machineName string)(d.MachineName); err != nil {
+		if err := d.setupBridgedNetwork(d.MachineName); err != nil {
 			return fmt.Errorf("Error setting up host only network on machine start: %s", err)
 		}
 	}
